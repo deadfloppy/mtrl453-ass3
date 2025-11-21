@@ -1,0 +1,76 @@
+#pragma kernel CSMain
+
+Texture2D<float4> _CurrentSlice;
+SamplerState sampler_CurrentSlice;
+
+RWTexture2D<float4> _PersistenceBuffer;
+RWTexture2D<float> _TimeBuffer;
+
+float _CurrentRotation;
+float _ProjectionAngle;
+float _ProjectionWidth;
+float _CurrentTime;
+float _SliceHeight;
+float _HelixPitch;
+int _BufferWidth;
+int _BufferHeight;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // BUFFER ORGANIZATION:
+    // X = radius (0 at center, 1 at edge)
+    // Y = height (0 at bottom, 1 at top)
+    
+    float radius = id.x / (float)_BufferWidth;
+    float heightParam = id.y / (float)_BufferHeight;
+    float height = heightParam * _HelixPitch;
+    
+    // Only process if this is the correct height for the current slice
+    float heightDiff = abs(height - _SliceHeight);
+    float heightTolerance = _HelixPitch / 32.0;
+    
+    if (heightDiff > heightTolerance) return;
+    
+    // The helicoid twists: at this height, what angle is "straight ahead"?
+    float helicoidTwist = heightParam * 6.28318;
+    
+    // Add overall rotation
+    float currentBaseAngle = helicoidTwist + _CurrentRotation;
+    currentBaseAngle = fmod(currentBaseAngle, 6.28318);
+    if (currentBaseAngle < 0) currentBaseAngle += 6.28318;
+    
+    // Check if this point is in the projection zone
+    float angleFromProjection = abs(currentBaseAngle - _ProjectionAngle);
+    if (angleFromProjection > 3.14159) angleFromProjection = 6.28318 - angleFromProjection;
+    
+    if (angleFromProjection > _ProjectionWidth) return;
+    
+    // Projection strength
+    float projectionStrength = 1.0 - (angleFromProjection / _ProjectionWidth);
+    projectionStrength = saturate(projectionStrength);
+    
+    // KEY INSIGHT: Sample the slice texture at THIS radius
+    // The slice is circular - we sample at (radius, angle=currentBaseAngle)
+    //
+    // Convert polar (radius, currentBaseAngle) to Cartesian UV
+    float2 sliceUV = float2(
+        0.5 + radius * cos(currentBaseAngle) * 0.45,
+        0.5 + radius * sin(currentBaseAngle) * 0.45
+    );
+    
+    float4 sliceColor = _CurrentSlice.SampleLevel(sampler_CurrentSlice, sliceUV, 0);
+    
+    // Blend with existing
+    float4 existingColor = _PersistenceBuffer[id.xy];
+    float existingTime = _TimeBuffer[id.xy];
+    
+    float timeSinceLastHit = _CurrentTime - existingTime;
+    float existingDecay = exp(-timeSinceLastHit * 0.5);
+    
+    float4 newColor = sliceColor * projectionStrength;
+    float4 blendedColor = max(existingColor * existingDecay, newColor);
+    
+    _PersistenceBuffer[id.xy] = blendedColor;
+    _TimeBuffer[id.xy] = _CurrentTime;
+}
