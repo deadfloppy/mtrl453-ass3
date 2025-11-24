@@ -1,56 +1,70 @@
-Shader "Hidden/SimpleMotionBlur"
+Shader "Hidden/TemporalMotionBlur"
 {
     Properties
     {
-        _MainTex ("Current Frame", 2D) = "white" {}
-        _PrevTex ("Previous Frame", 2D) = "black" {}
-        _BlurAmount ("Blur Amount", Float) = 0.5
+        _MainTex ("Source", 2D) = "white" {}
     }
-    
+
     SubShader
     {
-        Cull Off ZWrite Off ZTest Always
-        
-        Pass
+        Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" }
+        Cull Off
+        ZWrite Off
+        ZTest Always
+
+        Pass    
         {
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "UnityCG.cginc"
-            
-            struct appdata
+            Name "MotionBlurAccumulation"
+
+            HLSLPROGRAM
+            #pragma vertex VertexSimple
+            #pragma fragment FragmentAccumulate
+            #pragma target 3.5
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            TEXTURE2D(_AccumulationTex);
+            SAMPLER(sampler_AccumulationTex);
+
+            float _BlendFactor;
+
+            struct Attributes
             {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
+                uint vertexID : SV_VertexID;
             };
-            
-            struct v2f
+
+            struct Varyings
             {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
+                float4 positionCS : SV_POSITION;
+                float2 texcoord : TEXCOORD0;
             };
-            
-            sampler2D _MainTex;
-            sampler2D _PrevTex;
-            float _BlurAmount;
-            
-            v2f vert(appdata v)
+
+            Varyings VertexSimple(Attributes input)
             {
-                v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = v.uv;
-                return o;
+                Varyings output;
+                output.positionCS = GetFullScreenTriangleVertexPosition(input.vertexID);
+                output.texcoord = GetFullScreenTriangleTexCoord(input.vertexID);
+                return output;
             }
-            
-            float4 frag(v2f i) : SV_Target
+
+            half4 FragmentAccumulate(Varyings input) : SV_Target
             {
-                float4 current = tex2D(_MainTex, i.uv);
-                float4 previous = tex2D(_PrevTex, i.uv);
-                
-                // Blend current frame with accumulated previous frames
-                return lerp(current, previous, _BlurAmount);
+                float2 uv = input.texcoord;
+
+                half4 currentFrame = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+                half4 accumulatedFrame = SAMPLE_TEXTURE2D(_AccumulationTex, sampler_AccumulationTex, uv);
+
+                half4 result = lerp(currentFrame, accumulatedFrame, _BlendFactor);
+
+                return result;
             }
-            ENDCG
+            ENDHLSL
         }
     }
+
+    FallBack Off
 }

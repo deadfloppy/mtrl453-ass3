@@ -99,14 +99,14 @@ Material:
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Cull: 2
-    - _CurrentTime: 557.9897
+    - _CurrentTime: 372.1663
     - _Cutoff: 0.5
-    - _DecayRate: 0.1
+    - _DecayRate: 0.02
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _EmissionStrength: 1.74
+    - _EmissionStrength: 30
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
