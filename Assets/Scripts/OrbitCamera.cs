@@ -2,28 +2,42 @@ using UnityEngine;
 
 public class OrbitCamera : MonoBehaviour
 {
-    public Transform target; // Assign the HelicoidDisplay GameObject
-    public float distance = 5f;
+    public float moveSpeed = 5f;
     public float rotationSpeed = 5f;
-    public float zoomSpeed = 2f;
-    public float minDistance = 2f;
-    public float maxDistance = 20f;
-    
+    public int frameRateLimit = 60;
+
     private float currentX = 0f;
     private float currentY = 20f;
-    
+
     void Start()
     {
-        if (target == null)
-        {
-            Debug.LogError("OrbitCamera: No target assigned! Please assign the HelicoidDisplay GameObject.");
-        }
+        Application.targetFrameRate = frameRateLimit;
     }
-    
+
     void LateUpdate()
     {
-        if (target == null) return;
-        
+        // WASD movement
+        float horizontal = Input.GetAxis("Horizontal"); // A/D keys
+        float vertical = Input.GetAxis("Vertical");     // W/S keys
+
+        if (horizontal != 0 || vertical != 0)
+        {
+            // Get camera's forward and right directions (flattened to XZ plane)
+            Vector3 forward = transform.forward;
+            forward.y = 0;
+            forward.Normalize();
+
+            Vector3 right = transform.right;
+            right.y = 0;
+            right.Normalize();
+
+            // Calculate movement direction
+            Vector3 moveDirection = forward * vertical + right * horizontal;
+
+            // Move the camera directly
+            transform.position += moveDirection * moveSpeed * Time.deltaTime;
+        }
+
         // Rotate camera with mouse
         if (Input.GetMouseButton(0) || Input.GetMouseButton(1))
         {
@@ -31,17 +45,8 @@ public class OrbitCamera : MonoBehaviour
             currentY -= Input.GetAxis("Mouse Y") * rotationSpeed;
             currentY = Mathf.Clamp(currentY, -89f, 89f);
         }
-        
-        // Zoom with scroll wheel
-        distance -= Input.GetAxis("Mouse ScrollWheel") * zoomSpeed;
-        distance = Mathf.Clamp(distance, minDistance, maxDistance);
-        
-        // Calculate position
-        Quaternion rotation = Quaternion.Euler(currentY, currentX, 0);
-        Vector3 position = rotation * new Vector3(0, 0, -distance) + target.position;
-        
-        // Apply
-        transform.position = position;
-        transform.LookAt(target.position);
+
+        // Apply rotation
+        transform.rotation = Quaternion.Euler(currentY, currentX, 0);
     }
 }
