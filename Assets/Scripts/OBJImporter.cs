@@ -106,6 +106,7 @@ public class OBJImporter : MonoBehaviour
         var mf = loadedModel.AddComponent<MeshFilter>();
         var mr = loadedModel.AddComponent<MeshRenderer>();
         var controller = loadedModel.AddComponent<HelicoidModelController>();
+        var serialportcontroller = loadedModel.AddComponent<SerialPortController>();
 
         mf.mesh = mesh;
         mr.material = new Material(Shader.Find("Standard"));

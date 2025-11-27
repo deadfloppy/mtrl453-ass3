@@ -8,6 +8,7 @@ public class HelicoidModelController : MonoBehaviour
     [Header("Material Properties")]
     public Material modelMaterial;
 
+
     void Start()
     {
         // If no material is assigned, load the default HelicoidMaterial
