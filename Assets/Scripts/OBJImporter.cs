@@ -6,40 +6,81 @@ public class OBJImporter : MonoBehaviour
 {
     [Header("OBJ filename inside StreamingAssets")]
     public string objFileName = "model.obj";
+
     [Header("Model Scaling")]
     public float modelScaleFactor = 0.001f;
+
+    [Header("Behaviour")]
+    public bool loadOnStart = true;   // <- turn this OFF to prevent auto-load
 
     private GameObject loadedModel;
 
     void Start()
     {
-        LoadModel();
+        if (loadOnStart)
+        {
+            LoadModelFromStreamingAssets();
+        }
     }
 
-    [ContextMenu("Reload Model")]
-    public void LoadModel()
+    [ContextMenu("Reload model from StreamingAssets")]
+    public void LoadModelFromStreamingAssets()
     {
+        string path = Path.Combine(Application.streamingAssetsPath, objFileName);
+        LoadModelAtPath(path);
+    }
+
+    /// <summary>
+    /// Called by your UI after the user picks a file.
+    /// </summary>
+    public void LoadModelAtPath(string path)
+    {
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"OBJImporter: OBJ file not found at: {path}");
+            return;
+        }
+
         // Destroy previous model if it exists
         if (loadedModel != null)
         {
             Destroy(loadedModel);
+            loadedModel = null;
         }
 
-        string path = Path.Combine(Application.streamingAssetsPath, objFileName);
-        Debug.Log("Loading OBJ: " + path + " with scale: " + modelScaleFactor);
+        Mesh mesh = LoadMeshFromFile(path, modelScaleFactor);
+        if (mesh == null)
+        {
+            Debug.LogError("OBJImporter: failed to load mesh.");
+            return;
+        }
 
-        if (File.Exists(path))
-            LoadOBJ(path);
-        else
-            Debug.LogError("OBJ file not found at: " + path);
+        loadedModel = new GameObject(Path.GetFileNameWithoutExtension(path));
+        var mf = loadedModel.AddComponent<MeshFilter>();
+        var mr = loadedModel.AddComponent<MeshRenderer>();
+        var controller = loadedModel.AddComponent<HelicoidModelController>();
+
+        mf.sharedMesh = mesh;
+        mr.material = new Material(Shader.Find("Standard"));
+
+        Debug.Log($"OBJImporter: model loaded successfully with {mesh.vertexCount} vertices");
     }
 
-    void LoadOBJ(string path)
+    /// <summary>
+    /// Pure utility: parses an OBJ file and returns a Mesh.
+    /// You can call this directly from your UI file loader if you want.
+    /// </summary>
+    public static Mesh LoadMeshFromFile(string path, float scaleFactor = 0.001f)
     {
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"OBJImporter.LoadMeshFromFile: file does not exist: {path}");
+            return null;
+        }
+
         List<Vector3> verts = new();
         List<Vector2> uvs = new();
         List<Vector3> norms = new();
-
         List<int> triangles = new();
 
         string[] lines = File.ReadAllLines(path);
@@ -52,9 +93,9 @@ public class OBJImporter : MonoBehaviour
             {
                 string[] p = line.Split(' ');
                 verts.Add(new Vector3(
-                    float.Parse(p[1]) * modelScaleFactor,
-                    float.Parse(p[2]) * modelScaleFactor,
-                    float.Parse(p[3]) * modelScaleFactor
+                    float.Parse(p[1]) * scaleFactor,
+                    float.Parse(p[2]) * scaleFactor,
+                    float.Parse(p[3]) * scaleFactor
                 ));
             }
             else if (line.StartsWith("vt "))
@@ -102,14 +143,6 @@ public class OBJImporter : MonoBehaviour
 
         mesh.RecalculateBounds();
 
-        loadedModel = new GameObject(Path.GetFileNameWithoutExtension(path));
-        var mf = loadedModel.AddComponent<MeshFilter>();
-        var mr = loadedModel.AddComponent<MeshRenderer>();
-        var controller = loadedModel.AddComponent<HelicoidModelController>();
-
-        mf.mesh = mesh;
-        mr.material = new Material(Shader.Find("Standard"));
-
-        Debug.Log($"Model loaded successfully with {verts.Count} vertices");
+        return mesh;
     }
 }

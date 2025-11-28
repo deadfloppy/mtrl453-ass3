@@ -688,10 +688,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3175fc51a693046fb972039be4ac9809, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HelicoidProjectionReceiver
-  modelController: {fileID: 782406028}
-  displayMeshFilter: {fileID: 782406023}
-  targetCamera: {fileID: 1823688466}
-  targetRadiusAtSize1: 0.3
+  modelController: {fileID: 0}
+  displayMeshFilter: {fileID: 0}
+  objImporter: {fileID: 0}
+  baseScale: 1
 --- !u!114 &782406028
 MonoBehaviour:
   m_ObjectHideFlags: 0

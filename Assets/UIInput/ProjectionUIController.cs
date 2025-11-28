@@ -15,6 +15,12 @@ public class ProjectionUIController : MonoBehaviour
     public Button applyButton;
     public TMP_Text statusText;
 
+    [Header("External")]
+    [SerializeField] private OBJImporter objImporter;              // <- drag in Inspector
+    [SerializeField] private MonoBehaviour receiverBehaviour;      // <- HelicoidProjectionReceiver
+
+    IProjectionInputReceiver receiver; 
+
     public event Action<Mesh, float, float> OnInputApplied;
 
     Mesh loadedMesh;
@@ -22,6 +28,10 @@ public class ProjectionUIController : MonoBehaviour
 
     void Awake()
     {
+        receiver = receiverBehaviour as IProjectionInputReceiver;
+        if (receiver == null && receiverBehaviour != null)
+            Debug.LogError("receiverBehaviour does not implement IProjectionInputReceiver");
+
         browseButton.onClick.AddListener(Browse);
         rpmSlider.onValueChanged.AddListener(v => rpmValueText.text = $"{v:0} rpm");
         helicoidSlider.onValueChanged.AddListener(v => helicoidValueText.text = $"{v:0.00} scale");
@@ -53,6 +63,7 @@ public class ProjectionUIController : MonoBehaviour
         try
         {
             string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            loadedPath = path;
 
             if (ext == ".obj")
             {
@@ -62,6 +73,7 @@ public class ProjectionUIController : MonoBehaviour
             {
                 loadedMesh = MeshLoader.LoadStl(path);
             }
+
             else
             {
                 loadedMesh = null;
@@ -69,7 +81,7 @@ public class ProjectionUIController : MonoBehaviour
                 return;
             }
 
-            statusText.text = $"Loaded: {loadedMesh.name}";
+            statusText.text = $"Loaded: {System.IO.Path.GetFileName(path)}";
         }
         catch (Exception e)
         {
@@ -97,31 +109,14 @@ public class ProjectionUIController : MonoBehaviour
         statusText.text = $"Applied: {loadedMesh.name}, {rpm:0} rpm, size {helicoidSize:0.00}";
         OnInputApplied?.Invoke(loadedMesh, rpm, helicoidSize);
 
-        // ✅ Find any MonoBehaviour that implements IProjectionInputReceiver
-        IProjectionInputReceiver receiver = null;
-        var behaviours = FindObjectsByType<MonoBehaviour>(
-            FindObjectsInactive.Include,
-            FindObjectsSortMode.None
-        );
-
-        foreach (var b in behaviours)
+        if (receiver != null)
         {
-            if (b is IProjectionInputReceiver r)
-            {
-                receiver = r;
-                break;
-            }
+            receiver.ApplyProjectionInput(loadedMesh, rpm, helicoidSize);
         }
-
-        if (receiver != null)
-            receiver.ApplyProjectionInput(loadedMesh, rpm, helicoidSize);
         else
-            Debug.LogWarning("No IProjectionInputReceiver found in scene (MockReceiver missing?).");
-
-        if (receiver != null)
-            receiver.ApplyProjectionInput(loadedMesh, rpm, helicoidSize);
-        else
-            Debug.LogWarning("No IProjectionInputReceiver found in scene (MockReceiver missing?).");
+        {
+            Debug.LogWarning("ProjectionUIController: no IProjectionInputReceiver assigned.");
+        }
     }
 
 }
