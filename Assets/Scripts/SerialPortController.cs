@@ -28,13 +28,16 @@ public class SerialPortController : MonoBehaviour
         }
 
         // Find and open the Teensy port
-        string portName = FindTeensyPort();
-        if (string.IsNullOrEmpty(portName))
-        {
-            Debug.LogError("SerialPortController: Teensy port not found!");
-            enabled = false;
-            return;
-        }
+        // string portName = FindTeensyPort();
+        string portName = "/dev/ttys002";
+        // string portName = "/dev/ttys003";
+        // if (string.IsNullOrEmpty(portName))
+        // {
+        //     Debug.LogError("SerialPortController: Teensy port not found!");
+        //     enabled = false;
+        //     return;
+        // }
+        
 
         try
         {
