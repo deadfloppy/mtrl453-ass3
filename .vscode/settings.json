@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "hdrpv2.slnx"
+    "dotnet.defaultSolution": "mtrl453-ass3.slnx"
 }

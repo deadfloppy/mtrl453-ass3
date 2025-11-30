@@ -1,12 +1,21 @@
+using UnityEngine;
+
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Text.RegularExpressions;
-using UnityEngine;
 
+/// <summary>
+/// Real serial implementation (Windows / Windows Editor only)
+/// </summary>
 public class SerialPortController : MonoBehaviour
 {
+    [Header("Serial connection")]
+    [Tooltip("If false, no serial port will be opened or used.")]
+    public bool serialEnabled = false;
+
     // Teensy Vendor ID and Product ID
     private const string TEENSY_VID = "16C0";
     private const string TEENSY_PID = "0478";  // Default Serial/MTP. Change if using HID/MIDI/etc.
@@ -18,6 +27,12 @@ public class SerialPortController : MonoBehaviour
 
     void Start()
     {
+        if (!serialEnabled)
+        {
+            Debug.Log("[SerialPortController] Serial disabled, not opening port.");
+            return;
+        }
+
         // Get the HelicoidModelController component from the same GameObject
         helicoidController = GetComponent<HelicoidModelController>();
         if (helicoidController == null)
@@ -51,6 +66,9 @@ public class SerialPortController : MonoBehaviour
 
     void Update()
     {
+        if (!serialEnabled)
+            return;
+
         if (serialPort == null || !serialPort.IsOpen)
             return;
 
@@ -85,20 +103,15 @@ public class SerialPortController : MonoBehaviour
 
     private static string FindTeensyPort()
     {
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        // On Windows we only use the Windows implementation;
+        // if someone later wants macOS support with System.IO.Ports
+        // they can extend this method and the compile guards.
         return FindTeensyWindows();
-#elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        return FindTeensyMacOS();
-#else
-        Debug.LogError("TeensyPortFinder: Unsupported platform");
-        return null;
-#endif
     }
 
     // ===========================
     // Windows Registry Scan
     // ===========================
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
     private static string FindTeensyWindows()
     {
         try
@@ -135,58 +148,27 @@ public class SerialPortController : MonoBehaviour
 
         return null;
     }
-#endif
-
-    // ===========================
-    // macOS IORegistry Scan
-    // ===========================
-#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-    private static string FindTeensyMacOS()
-    {
-        try
-        {
-            // List all USB modem ports (Teensy uses these)
-            string[] ports = Directory.GetFiles("/dev", "tty.usbmodem*");
-
-            foreach (string port in ports)
-            {
-                if (IsTeensyMacOS(port))
-                    return port;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("TeensyPortFinder macOS error: " + e);
-        }
-
-        return null;
-    }
-
-    private static bool IsTeensyMacOS(string port)
-    {
-        try
-        {
-            // Query IORegistry for VID/PID of this device
-            string cmd = $"ioreg -p IOUSB -l | grep -A5 '{Path.GetFileName(port)}'";
-
-            var process = new System.Diagnostics.Process();
-            process.StartInfo.FileName = "/bin/bash";
-            process.StartInfo.Arguments = $"-c \"{cmd}\"";
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
-            process.Start();
-
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            return output.Contains("idVendor = " + Convert.ToInt32(TEENSY_VID, 16)) &&
-                   output.Contains("idProduct = " + Convert.ToInt32(TEENSY_PID, 16));
-        }
-        catch
-        {
-            return false;
-        }
-    }
-#endif
 }
+
+#else
+/// <summary>
+/// Dummy serial controller for platforms where System.IO.Ports is unavailable (e.g. macOS Unity).
+/// Keeps the same public API so scenes don't break, but does nothing.
+/// </summary>
+public class SerialPortController : MonoBehaviour
+{
+    [Header("Serial connection")]
+    public bool serialEnabled = false;
+
+    void Start()
+    {
+        if (serialEnabled)
+        {
+            Debug.LogWarning("[SerialPortController] Serial is enabled, but this platform does not support System.IO.Ports in Unity.");
+        }
+    }
+
+    void Update() { }
+    void OnDestroy() { }
+}
+#endif
